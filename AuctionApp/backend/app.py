@@ -11,7 +11,10 @@ from datetime import datetime
 # ─────────────────────────────────────────────
 #  APP SETUP
 # ─────────────────────────────────────────────
-app = Flask(__name__)
+frontend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'frontend'))
+app = Flask(__name__,
+            template_folder=os.path.join(frontend_dir, 'templates'),
+            static_folder=os.path.join(frontend_dir, 'static'))
 app.secret_key = os.environ.get("SECRET_KEY", "auction-secret-2025")
 
 socketio = SocketIO(
@@ -61,8 +64,11 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive",
 ]
 
-# Place your service account JSON file as 'credentials.json' in the same folder
+# Try backend/ folder first
 CREDENTIALS_FILE = os.path.join(os.path.dirname(__file__), "credentials.json")
+# Fallback to the parent folder (for Render deployment)
+if not os.path.exists(CREDENTIALS_FILE):
+    CREDENTIALS_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'credentials.json'))
 
 # Replace with your actual Google Sheet ID (found in the URL)
 SPREADSHEET_ID = "1e6iVPrpcp-9r1Gs0_b4SvPNQF2V_XtQA5exWgheBGl8"
