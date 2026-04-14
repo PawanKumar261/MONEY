@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STRIKER AUCTION — Admin Command Center</title>
+  <meta name="description" content="Admin dashboard to control the real-time player auction session." />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  <style>
+    /* Admin-specific styles */
+    .control-panel {
+      background: linear-gradient(135deg, #1a1800, #0f1208);
+      border: 1px solid rgba(75,83,32,0.5);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+    }
+    .selected-preview {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      min-height: 80px;
+      margin-bottom: 1rem;
+    }
+    .selected-preview .no-sel {
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      text-align: center;
+      padding: 1rem 0;
+    }
+    .action-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      margin-top: 0.75rem;
+    }
+    .stat-row {
+      display: grid;
+      grid-template-columns: repeat(3,1fr);
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .stat-box {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.85rem;
+      text-align: center;
+    }
+    .stat-value {
+      font-family: var(--font-head);
+      font-size: 1.6rem;
+      color: var(--orange);
+    }
+    .stat-label {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      letter-spacing: 2px;
+    }
+    .live-badge {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      background: rgba(255,69,0,0.1); border: 1px solid rgba(255,69,0,0.4);
+      color: var(--orange); padding: 0.2rem 0.7rem; border-radius: 20px;
+      font-size: 0.7rem; font-family: var(--font-mono); letter-spacing: 1px;
+    }
+    .live-dot { width:6px; height:6px; border-radius:50%; background:var(--orange); animation: pulse-dot 1s infinite; }
+    .admin-tabs { display:flex; gap:0.5rem; margin-bottom:1rem; }
+    .tab-btn {
+      padding: 0.5rem 1rem;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .tab-btn.active {
+      background: rgba(75,83,32,0.2);
+      border-color: var(--green-light);
+      color: var(--green-light);
+    }
+    .tab-panel { display:none; }
+    .tab-panel.active { display:block; }
+    .bid-monitor {
+      font-family: var(--font-head);
+      font-size: clamp(2rem,6vw,3.5rem);
+      color: var(--orange);
+      text-shadow: 0 0 20px var(--orange-glow);
+      text-align: center;
+      padding: 1rem;
+    }
+    .winner-team {
+      text-align:center;
+      font-family: var(--font-mono);
+      color: var(--green-light);
+      font-size: 0.9rem;
+      margin-top: -0.5rem;
+      margin-bottom: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════ NAV ═══════════ -->
+<nav class="navbar">
+  <div class="logo">⚙ ADMIN <span>COMMAND</span> CENTER</div>
+  <div class="nav-status">
+    <div class="status-dot" id="conn-dot"></div>
+    <span id="conn-label">CONNECTING…</span>
+    <span class="live-badge" id="live-badge" style="display:none">
+      <span class="live-dot"></span> ON AIR
+    </span>
+  </div>
+</nav>
+
+<!-- ═══════════ MAIN ═══════════ -->
+<div class="container">
+
+  <!-- STATS ROW -->
+  <div class="stat-row">
+    <div class="stat-box">
+      <div class="stat-value" id="stat-total">0</div>
+      <div class="stat-label">TOTAL PLAYERS</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-value" id="stat-sold" style="color:var(--gold)">0</div>
+      <div class="stat-label">SOLD</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-value" id="stat-avail" style="color:#00c864">0</div>
+      <div class="stat-label">AVAILABLE</div>
+    </div>
+  </div>
+
+  <!-- ADMIN GRID -->
+  <div class="admin-grid">
+
+    <!-- ── LEFT: PLAYER LIST ── -->
+    <div>
+      <div class="card" style="margin-bottom:1rem">
+        <div class="section-header">
+          <h3>GOOGLE SHEETS SYNC</h3>
+          <div class="section-divider"></div>
+        </div>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+          <button class="btn btn-secondary w100" id="btn-fetch" onclick="fetchPlayers()">
+            <span id="fetch-spinner" class="spinner hidden"></span>
+            📋 FETCH PLAYERS
+          </button>
+          <button class="btn btn-secondary w100" style="margin-top:0.5rem" onclick="fetchTeams()">
+            👥 SYNC TEAMS
+          </button>
+          <button class="btn btn-danger w100" style="margin-top:1.5rem; font-size:0.75rem" onclick="resetDatabase()">
+            ⚠️ RESET WHOLE RECORD (DANGER)
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-header">
+          <h3>PLAYER ROSTER</h3>
+          <div class="section-divider"></div>
+        </div>
+        <!-- TABS -->
+        <div class="admin-tabs">
+          <button class="tab-btn active" onclick="filterPlayers('all',this)">ALL</button>
+          <button class="tab-btn" onclick="filterPlayers('available',this)">AVAILABLE</button>
+          <button class="tab-btn" onclick="filterPlayers('sold',this)">SOLD</button>
+        </div>
+        <div class="player-list" id="player-list">
+          <div style="color:var(--text-dim);font-family:var(--font-mono);font-size:0.8rem;text-align:center;padding:1.5rem 0">
+            Fetch players from Google Sheets first…
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── RIGHT: CONTROLS ── -->
+    <div>
+
+      <!-- SELECTED PLAYER + CONTROLS -->
+      <div class="control-panel" style="margin-bottom:1rem">
+        <div class="section-header">
+          <h3>MISSION CONTROL</h3>
+          <div class="section-divider"></div>
+        </div>
+
+        <div class="selected-preview" id="selected-preview">
+          <div class="no-sel">← Select a player from the roster to auction</div>
+        </div>
+
+        <div class="action-row">
+          <button class="btn btn-primary" id="btn-start" onclick="startAuction()" disabled>
+            ▶ START AUCTION
+          </button>
+          <button class="btn btn-danger" id="btn-unsold" onclick="markUnsold()" disabled>
+            ✕ MARK UNSOLD
+          </button>
+        </div>
+      </div>
+
+      <!-- LIVE BID MONITOR -->
+      <div class="card" style="margin-bottom:1rem" id="live-monitor">
+        <div class="section-header">
+          <h3>LIVE BID MONITOR</h3>
+          <div class="section-divider"></div>
+        </div>
+        <div id="timer-admin" style="text-align:center;font-family:var(--font-mono);font-size:1rem;color:var(--orange);letter-spacing:2px;margin-bottom:0.25rem">⏱ —</div>
+        <div class="bid-monitor" id="admin-bid-amount">—</div>
+        <div class="winner-team" id="admin-bid-team">Waiting for bids…</div>
+
+        <!-- SOLD BUTTON -->
+        <button class="btn btn-gold w100" id="btn-sold" onclick="confirmSold()" disabled>
+          🏆 SOLD — CONFIRM &amp; WRITE TO SHEETS
+        </button>
+      </div>
+
+      <!-- TEAMS OVERVIEW -->
+      <div class="card" style="margin-bottom:1rem">
+        <div class="section-header">
+          <h3>SQUAD BUDGETS</h3>
+          <div class="section-divider"></div>
+        </div>
+        <div class="teams-grid" id="teams-grid">
+          <div style="color:var(--text-dim);font-size:0.8rem;font-family:var(--font-mono)">Sync teams first…</div>
+        </div>
+      </div>
+
+      <!-- ADMIN FEED -->
+      <div class="card">
+        <div class="section-header">
+          <h3>SYSTEM LOG</h3>
+          <div class="section-divider"></div>
+        </div>
+        <div class="feed" id="admin-feed"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- SOLD CONFIRM MODAL -->
+<div id="confirm-modal" class="sold-overlay hidden" style="z-index:6000">
+  <div class="sold-card" style="max-width:380px">
+    <div style="font-family:var(--font-head);font-size:1.5rem;color:var(--gold);letter-spacing:3px;margin-bottom:1rem">CONFIRM SOLD</div>
+    <p style="margin-bottom:0.5rem;color:var(--text-dim)">Player: <strong id="modal-player" style="color:var(--text)">—</strong></p>
+    <p style="margin-bottom:0.5rem;color:var(--text-dim)">Winner: <strong id="modal-team" style="color:var(--orange)">—</strong></p>
+    <p style="margin-bottom:1.5rem;color:var(--text-dim)">Price: <strong id="modal-price" style="color:var(--gold)">— Cr</strong></p>
+    <div style="display:flex;gap:0.75rem;justify-content:center">
+      <button class="btn btn-gold" onclick="executeSold()">✓ CONFIRM</button>
+      <button class="btn btn-secondary" onclick="closeModal()">✕ CANCEL</button>
+    </div>
+  </div>
+</div>
+
+<!-- SOCKET.IO -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+<script>
+// ──────────────────────────────────────────────
+//  STATE
+// ──────────────────────────────────────────────
+let allPlayers = [];
+let teamsData  = {};
+let selectedPlayer = null;
+let currentBid = 0;
+let currentLeader = null;
+let activeFilter = 'all';
+let auctionLive = false;
+
+// ──────────────────────────────────────────────
+//  SOCKET
+// ──────────────────────────────────────────────
+const socket = io({ transports: ['websocket','polling'] });
+
+socket.on('connect', () => {
+  setConn(true);
+  addFeed('system','Admin connected to server');
+});
+socket.on('disconnect', () => {
+  setConn(false);
+  addFeed('warn','Connection lost');
+});
+
+socket.on('state_sync', (data) => {
+  if (data.players?.length) {
+    allPlayers = data.players;
+    renderPlayers();
+    updateStats();
+  }
+  if (data.teams && Object.keys(data.teams).length) {
+    teamsData = data.teams;
+    renderTeams();
+  }
+  if (data.auction_active && data.current_player) {
+    auctionLive = true;
+    setLiveBadge(true);
+    updateMonitor(data.current_bid, data.highest_bidder, data.timer);
+    document.getElementById('btn-sold').disabled = !data.highest_bidder;
+    document.getElementById('btn-unsold').disabled = false;
+  }
+});
+
+socket.on('bid_update', (data) => {
+  currentBid = data.current_bid;
+  currentLeader = data.highest_bidder;
+  updateMonitor(data.current_bid, data.highest_bidder, data.timer);
+  document.getElementById('btn-sold').disabled = false;
+  addFeed('bid', `+${data.increment} → ${data.current_bid} Cr by ${data.team}`);
+});
+
+socket.on('timer_update', (data) => {
+  setTimerDisplay(data.timer);
+});
+
+socket.on('timer_expired', (data) => {
+  auctionLive = false;
+  setLiveBadge(false);
+  addFeed('system', `⏱ Timer expired. Winner: ${data.winner || 'None'}`);
+  if (!data.winner) {
+    resetMonitor();
+    document.getElementById('btn-unsold').disabled = true;
+  }
+});
+
+socket.on('player_sold', (data) => {
+  auctionLive = false;
+  setLiveBadge(false);
+  teamsData = data.teams || {};
+  renderTeams();
+  allPlayers = data.players || allPlayers;
+  // Update local sold status
+  const p = allPlayers.find(x => x.id == data.player?.id);
+  if (p) { p.status = 'Sold'; p.sold_to = data.winner; p.final_price = data.final_price; }
+  renderPlayers();
+  updateStats();
+  resetMonitor();
+  selectedPlayer = null;
+  document.getElementById('selected-preview').innerHTML = '<div class="no-sel">← Select a player from the roster to auction</div>';
+  document.getElementById('btn-start').disabled = true;
+  document.getElementById('btn-unsold').disabled = true;
+  document.getElementById('btn-sold').disabled = true;
+  addFeed('sold', `⭐ SOLD: ${data.player?.name} → ${data.winner} for ${data.final_price} Cr`);
+  toast(`SOLD: ${data.player?.name} to ${data.winner}`, 'success');
+});
+
+socket.on('player_unsold', (data) => {
+  auctionLive = false;
+  setLiveBadge(false);
+  resetMonitor();
+  addFeed('warn', `🚫 UNSOLD: ${data.player?.name || 'Player'}`);
+  toast('Marked as UNSOLD', 'danger');
+  document.getElementById('btn-unsold').disabled = true;
+  document.getElementById('btn-sold').disabled = true;
+  selectedPlayer = null;
+  document.getElementById('selected-preview').innerHTML = '<div class="no-sel">← Select a player from the roster to auction</div>';
+  document.getElementById('btn-start').disabled = true;
+});
+
+socket.on('players_updated', (data) => {
+  allPlayers = data.players || allPlayers;
+  renderPlayers();
+  updateStats();
+  addFeed('system','Roster synced from Google Sheets');
+  toast('Players fetched from Sheets!','success');
+});
+
+socket.on('teams_updated', (data) => {
+  teamsData = data.teams || {};
+  renderTeams();
+  addFeed('system','Teams synced from Google Sheets');
+});
+
+// ──────────────────────────────────────────────
+//  FETCH FROM SHEETS
+// ──────────────────────────────────────────────
+async function fetchPlayers() {
+  const btn = document.getElementById('btn-fetch');
+  const spinner = document.getElementById('fetch-spinner');
+  btn.disabled = true;
+  spinner.classList.remove('hidden');
+  try {
+    const res = await fetch('/api/fetch_players');
+    const data = await res.json();
+    if (data.error) { toast(data.error,'danger'); return; }
+    allPlayers = data.players;
+    renderPlayers();
+    updateStats();
+    toast(`Fetched ${allPlayers.length} players`,'success');
+    addFeed('system',`Loaded ${allPlayers.length} players from Sheets`);
+  } catch(e) {
+    toast('Network error: ' + e.message, 'danger');
+  } finally {
+    btn.disabled = false;
+    spinner.classList.add('hidden');
+  }
+}
+
+async function fetchTeams() {
+  try {
+    const res = await fetch('/api/fetch_teams');
+    const data = await res.json();
+    if (data.error) { toast(data.error,'danger'); return; }
+    teamsData = data.teams;
+    renderTeams();
+    toast('Teams synced!','success');
+  } catch(e) {
+    toast('Network error','danger');
+  }
+}
+
+async function resetDatabase() {
+  if (!confirm("⚠️ WARNING: This will completely WIPE the Google Sheet!\nAll teams will reset to 100 credits, and all players will become Available.\n\nARE YOU ABSOLUTELY SURE?")) return;
+  if (!confirm("FINAL CONFIRMATION.\nYou cannot undo this database reset. Proceed?")) return;
+  
+  toast("Starting database wipe...", "info");
+  try {
+    const res = await fetch('/api/reset_auction', { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      toast("DATABASE RESET SUCCESSFUL!", "success");
+      addFeed("system", "⚠️ ADMIN PERFORMED FULL DATABASE RESET");
+      // Auto re-fetch everything
+      fetchPlayers();
+      fetchTeams();
+      socket.emit('player_unsold', {}); // Broadcast to stop any active auction ui
+    } else {
+      toast("Reset failed: " + data.error, "danger");
+    }
+  } catch (e) {
+    toast("Network error during reset: " + e.message, "danger");
+  }
+}
+
+// ──────────────────────────────────────────────
+//  PLAYER LIST
+// ──────────────────────────────────────────────
+function filterPlayers(f, btn) {
+  activeFilter = f;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPlayers();
+}
+
+function renderPlayers() {
+  const list = document.getElementById('player-list');
+  let players = allPlayers;
+  if (activeFilter === 'available') players = players.filter(p => p.status !== 'Sold');
+  if (activeFilter === 'sold')      players = players.filter(p => p.status === 'Sold');
+
+  if (!players.length) {
+    list.innerHTML = '<div style="color:var(--text-dim);font-family:var(--font-mono);font-size:0.8rem;text-align:center;padding:1.5rem 0">No players in this category</div>';
+    return;
+  }
+  list.innerHTML = players.map(p => `
+    <div class="player-item ${p.status==='Sold'?'sold':''} ${selectedPlayer?.id==p.id?'selected':''}"
+         onclick="${p.status!=='Sold'?`selectPlayer(${JSON.stringify(p).replace(/"/g,"'")})`:''}">
+      <span class="p-id">#${p.id}</span>
+      <span class="p-name">${p.name}</span>
+      <span class="p-skill">${p.skill}</span>
+      <span class="p-price">⚡${p.base_price}</span>
+      <span class="p-status ${p.status==='Sold'?'sold':'available'}">${p.status}</span>
+    </div>
+  `).join('');
+}
+
+function selectPlayer(player) {
+  if (auctionLive) { toast('Auction in progress!','danger'); return; }
+  selectedPlayer = player;
+
+  document.getElementById('selected-preview').innerHTML = `
+    <div style="display:flex;align-items:center;gap:0.75rem">
+      <div>
+        <div style="font-family:var(--font-head);font-size:1.1rem;color:var(--text)">${player.name}</div>
+        <div style="font-size:0.8rem;color:var(--orange);margin-top:0.2rem">${player.skill} · ID: ${player.id}</div>
+        <div style="font-family:var(--font-mono);color:var(--gold);margin-top:0.3rem">Base: ⚡ ${player.base_price} Cr</div>
+      </div>
+    </div>
+  `;
+  document.getElementById('btn-start').disabled = false;
+  renderPlayers();
+}
+
+// ──────────────────────────────────────────────
+//  AUCTION CONTROLS
+// ──────────────────────────────────────────────
+function startAuction() {
+  if (!selectedPlayer) { toast('Select a player first','danger'); return; }
+  if (auctionLive) { toast('Auction already live!','danger'); return; }
+  auctionLive = true;
+  currentBid = selectedPlayer.base_price;
+  currentLeader = null;
+  socket.emit('start_auction', { player: selectedPlayer });
+  setLiveBadge(true);
+  document.getElementById('btn-start').disabled = true;
+  document.getElementById('btn-unsold').disabled = false;
+  document.getElementById('btn-sold').disabled = true;
+  addFeed('system',`Started auction: ${selectedPlayer.name}`);
+}
+
+function markUnsold() {
+  if (!confirm(`Mark ${selectedPlayer?.name || 'player'} as UNSOLD?`)) return;
+  socket.emit('unsold_player', {});
+  document.getElementById('btn-unsold').disabled = true;
+  document.getElementById('btn-sold').disabled = true;
+}
+
+function confirmSold() {
+  if (!currentLeader) { toast('No bidder yet','danger'); return; }
+  document.getElementById('modal-player').textContent = selectedPlayer?.name || '—';
+  document.getElementById('modal-team').textContent = currentLeader;
+  document.getElementById('modal-price').textContent = currentBid + ' Cr';
+  document.getElementById('confirm-modal').classList.remove('hidden');
+}
+
+function closeModal() {
+  document.getElementById('confirm-modal').classList.add('hidden');
+}
+
+async function executeSold() {
+  closeModal();
+  try {
+    const res = await fetch('/api/sold', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        player_id: selectedPlayer?.id,
+        winner: currentLeader,
+        final_price: currentBid,
+      }),
+    });
+    const data = await res.json();
+    if (data.error) { toast(data.error,'danger'); }
+  } catch(e) {
+    toast('Error writing to Sheets: ' + e.message, 'danger');
+  }
+}
+
+// ──────────────────────────────────────────────
+//  MONITOR
+// ──────────────────────────────────────────────
+function updateMonitor(bid, team, timer) {
+  currentBid = bid;
+  currentLeader = team;
+  document.getElementById('admin-bid-amount').textContent = bid > 0 ? `⚡ ${bid}` : '—';
+  document.getElementById('admin-bid-team').textContent = team ? `🏆 ${team}` : 'Waiting for bids…';
+  setTimerDisplay(timer);
+}
+
+function setTimerDisplay(t) {
+  const el = document.getElementById('timer-admin');
+  el.textContent = `⏱ ${t}s`;
+  el.style.color = t <= 5 ? 'var(--danger)' : t <= 10 ? 'var(--gold)' : 'var(--orange)';
+}
+
+function resetMonitor() {
+  document.getElementById('admin-bid-amount').textContent = '—';
+  document.getElementById('admin-bid-team').textContent = 'Waiting for bids…';
+  document.getElementById('timer-admin').textContent = '⏱ —';
+}
+
+// ──────────────────────────────────────────────
+//  TEAMS
+// ──────────────────────────────────────────────
+function renderTeams() {
+  const grid = document.getElementById('teams-grid');
+  if (!Object.keys(teamsData).length) {
+    grid.innerHTML = '<div style="color:var(--text-dim);font-size:0.8rem;font-family:var(--font-mono)">Sync teams first…</div>';
+    return;
+  }
+  grid.innerHTML = Object.entries(teamsData).map(([name,d]) => `
+    <div class="team-card ${name===currentLeader?'leading':''}">
+      <div class="team-name-tag">${name}</div>
+      <div class="team-budget">⚡ ${d.budget}</div>
+      <div class="team-players">${d.player_count} player(s)</div>
+    </div>
+  `).join('');
+}
+
+// ──────────────────────────────────────────────
+//  STATS
+// ──────────────────────────────────────────────
+function updateStats() {
+  const total = allPlayers.length;
+  const sold = allPlayers.filter(p=>p.status==='Sold').length;
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('stat-sold').textContent  = sold;
+  document.getElementById('stat-avail').textContent = total - sold;
+}
+
+// ──────────────────────────────────────────────
+//  CONN / BADGE
+// ──────────────────────────────────────────────
+function setConn(ok) {
+  const dot = document.getElementById('conn-dot');
+  const lbl = document.getElementById('conn-label');
+  dot.className = 'status-dot' + (ok?' connected':'');
+  lbl.textContent = ok ? 'ONLINE' : 'OFFLINE';
+}
+
+function setLiveBadge(on) {
+  document.getElementById('live-badge').style.display = on ? 'inline-flex' : 'none';
+}
+
+// ──────────────────────────────────────────────
+//  TOAST / FEED
+// ──────────────────────────────────────────────
+function toast(msg, type='info') {
+  const c = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = `toast ${type==='danger'?'danger':type==='success'?'success':''}`;
+  el.textContent = msg;
+  c.prepend(el);
+  setTimeout(()=>{el.classList.add('leaving');setTimeout(()=>el.remove(),350);},3500);
+}
+
+function addFeed(type, msg) {
+  const feed = document.getElementById('admin-feed');
+  const now = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const e = document.createElement('div');
+  e.className = 'feed-entry';
+  e.innerHTML = `<span class="time">[${now}]</span><span class="event-${type}">${msg}</span>`;
+  feed.prepend(e);
+  if (feed.children.length > 80) feed.lastChild.remove();
+}
+</script>
+</body>
+</html>

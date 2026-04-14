@@ -1,0 +1,5 @@
+flask>=3.0.0
+flask-socketio>=5.3.6
+gspread>=6.0.0
+google-auth>=2.29.0
+eventlet>=0.35.0

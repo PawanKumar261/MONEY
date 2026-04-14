@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STRIKER AUCTION — Mission Briefing</title>
+  <meta name="description" content="Login portal for the Striker Player Auction System." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:       #0d0d0d;
+      --bg2:      #161616;
+      --bg3:      #1f1f1f;
+      --green:    #4B5320;
+      --green-l:  #6b7a30;
+      --orange:   #FF4500;
+      --orange-l: #ff6a35;
+      --gold:     #FFD700;
+      --text:     #e8e8e8;
+      --dim:      #777;
+      --danger:   #ff2244;
+    }
+    html, body {
+      height: 100%; background: var(--bg); color: var(--text);
+      font-family: 'Rajdhani', sans-serif;
+      overflow: hidden;
+    }
+    /* Animated grid background */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(75,83,32,0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(75,83,32,0.08) 1px, transparent 1px);
+      background-size: 50px 50px;
+      animation: gridMove 20s linear infinite;
+      pointer-events: none;
+    }
+    @keyframes gridMove {
+      0%   { background-position: 0 0; }
+      100% { background-position: 50px 50px; }
+    }
+    /* Scanline */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.05) 2px,rgba(0,0,0,0.05) 4px);
+      pointer-events: none; z-index: 9999;
+    }
+
+    .page {
+      position: relative; height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 1.5rem; z-index: 1;
+      overflow-y: auto;
+    }
+
+    /* Header */
+    .brand {
+      text-align: center; margin-bottom: 2.5rem;
+    }
+    .brand-skull {
+      font-size: 3rem; margin-bottom: 0.5rem;
+      animation: float 3s ease-in-out infinite;
+      display: block;
+    }
+    @keyframes float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-8px); } }
+    .brand-title {
+      font-family: 'Orbitron', monospace;
+      font-size: clamp(1.5rem, 5vw, 2.8rem);
+      font-weight: 900;
+      letter-spacing: 6px;
+      background: linear-gradient(135deg, var(--orange), var(--gold));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .brand-sub {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 4px;
+      color: var(--green-l);
+      margin-top: 0.4rem;
+    }
+
+    /* Role Cards Grid */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem;
+      width: 100%;
+      max-width: 860px;
+    }
+    @media (max-width: 700px) { .cards-grid { grid-template-columns: 1fr; max-width: 360px; } }
+
+    .role-card {
+      background: var(--bg2);
+      border-radius: 16px;
+      border: 1px solid rgba(75,83,32,0.3);
+      padding: 2rem 1.5rem;
+      display: flex; flex-direction: column;
+      align-items: center; text-align: center;
+      gap: 0.75rem;
+      position: relative; overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+    .role-card::before {
+      content: '';
+      position: absolute; inset: 0;
+      opacity: 0; transition: opacity 0.25s;
+      pointer-events: none;
+    }
+    .role-card:hover { transform: translateY(-4px); }
+
+    /* Admin card */
+    .card-admin { border-color: rgba(255,69,0,0.35); }
+    .card-admin::before { background: linear-gradient(135deg,rgba(255,69,0,0.07),transparent); }
+    .card-admin:hover { border-color: var(--orange); box-shadow: 0 0 30px rgba(255,69,0,0.2); }
+    .card-admin:hover::before { opacity: 1; }
+
+    /* Team card */
+    .card-team { border-color: rgba(75,83,32,0.4); }
+    .card-team::before { background: linear-gradient(135deg,rgba(75,83,32,0.1),transparent); }
+    .card-team:hover { border-color: var(--green-l); box-shadow: 0 0 30px rgba(75,83,32,0.2); }
+    .card-team:hover::before { opacity: 1; }
+
+    /* Audience card */
+    .card-audience { border-color: rgba(255,215,0,0.25); }
+    .card-audience::before { background: linear-gradient(135deg,rgba(255,215,0,0.05),transparent); }
+    .card-audience:hover { border-color: var(--gold); box-shadow: 0 0 30px rgba(255,215,0,0.15); }
+    .card-audience:hover::before { opacity: 1; }
+
+    .card-icon { font-size: 2.8rem; line-height: 1; }
+    .card-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 0.9rem; letter-spacing: 3px;
+      font-weight: 700;
+    }
+    .card-admin   .card-title { color: var(--orange); }
+    .card-team    .card-title { color: var(--green-l); }
+    .card-audience .card-title { color: var(--gold); }
+    .card-desc { font-size: 0.82rem; color: var(--dim); line-height: 1.5; }
+
+    /* Input inside card */
+    .card-input-wrap { width: 100%; display: none; flex-direction: column; gap: 0.6rem; }
+    .card-input-wrap.open { display: flex; }
+    .input-label { font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; color: var(--dim); letter-spacing: 2px; text-align: left; }
+
+    .field {
+      width: 100%;
+      padding: 0.65rem 0.9rem;
+      background: #0d0d0d;
+      border: 1px solid rgba(75,83,32,0.4);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.85rem;
+      transition: border-color 0.2s;
+    }
+    .field:focus { outline: none; border-color: var(--orange); }
+    .card-admin   .field:focus { border-color: var(--orange); }
+    .card-team    .field:focus { border-color: var(--green-l); }
+
+    .field-select {
+      width: 100%;
+      padding: 0.65rem 0.9rem;
+      background: #0d0d0d;
+      border: 1px solid rgba(75,83,32,0.4);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.85rem;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 6 5-6' stroke='%234B5320' fill='none' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 0.9rem center;
+      cursor: pointer; transition: border-color 0.2s;
+    }
+    .field-select:focus { outline: none; border-color: var(--green-l); }
+    .field-select option { background: #161616; }
+
+    .btn-login {
+      width: 100%; padding: 0.75rem;
+      border: none; border-radius: 8px;
+      font-family: 'Orbitron', monospace;
+      font-size: 0.75rem; letter-spacing: 2px; font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .card-admin .btn-login {
+      background: var(--orange); color: #fff;
+      box-shadow: 0 4px 15px rgba(255,69,0,0.3);
+    }
+    .card-admin .btn-login:hover { background: var(--orange-l); box-shadow: 0 6px 25px rgba(255,69,0,0.5); }
+    .card-team .btn-login {
+      background: var(--green); color: #fff;
+      box-shadow: 0 4px 15px rgba(75,83,32,0.3);
+    }
+    .card-team .btn-login:hover { background: var(--green-l); box-shadow: 0 6px 25px rgba(75,83,32,0.5); }
+
+    .btn-audience {
+      width: 100%; padding: 0.75rem;
+      background: linear-gradient(135deg, #b8860b, var(--gold));
+      border: none; border-radius: 8px;
+      color: #1a1000; font-family: 'Orbitron', monospace;
+      font-size: 0.75rem; letter-spacing: 2px; font-weight: 700;
+      cursor: pointer; transition: all 0.2s;
+      box-shadow: 0 4px 15px rgba(255,215,0,0.2);
+    }
+    .btn-audience:hover { box-shadow: 0 6px 25px rgba(255,215,0,0.4); transform: translateY(-1px); }
+
+    .error-msg {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.72rem; color: var(--danger);
+      min-height: 1.1em; text-align: center;
+    }
+
+    /* Expand toggle */
+    .btn-expand {
+      width: 100%; padding: 0.6rem;
+      background: transparent;
+      border: 1px solid currentColor;
+      border-radius: 8px;
+      font-family: 'Orbitron', monospace;
+      font-size: 0.7rem; letter-spacing: 2px;
+      cursor: pointer; transition: all 0.2s;
+      margin-top: 0.5rem;
+    }
+    .card-admin .btn-expand { color: var(--orange); }
+    .card-admin .btn-expand:hover { background: rgba(255,69,0,0.1); }
+    .card-team  .btn-expand { color: var(--green-l); }
+    .card-team  .btn-expand:hover { background: rgba(75,83,32,0.15); }
+
+    /* Version tag */
+    .version {
+      margin-top: 2rem;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.65rem; color: rgba(255,255,255,0.12);
+      letter-spacing: 2px;
+    }
+
+    /* Glow pulse on title */
+    @keyframes titlePulse {
+      0%,100% { filter: drop-shadow(0 0 8px rgba(255,69,0,0.4)); }
+      50%      { filter: drop-shadow(0 0 20px rgba(255,69,0,0.7)); }
+    }
+    .brand-title { animation: titlePulse 4s ease-in-out infinite; }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- BRAND HEADER -->
+  <div class="brand">
+    <span class="brand-skull">⚔</span>
+    <div class="brand-title">STRIKER AUCTION</div>
+    <div class="brand-sub">▸ MISSION BRIEFING PORTAL ◂</div>
+  </div>
+
+  <!-- ROLE CARDS -->
+  <div class="cards-grid">
+
+    <!-- ── ADMIN ── -->
+    <div class="role-card card-admin">
+      <div class="card-icon">🎖</div>
+      <div class="card-title">COMMANDER</div>
+      <div class="card-desc">Control the auction, manage players & confirm sales</div>
+
+      <button class="btn-expand" onclick="toggleCard('admin')">▶ LOGIN</button>
+
+      <div class="card-input-wrap" id="admin-wrap">
+        <form onsubmit="doLogin(event,'admin')">
+          <div class="input-label">ADMIN PASSWORD</div>
+          <input class="field" type="password" id="admin-pass" placeholder="Enter password…" autocomplete="off" />
+          <div class="error-msg" id="admin-err"></div>
+          <button class="btn-login" type="submit" style="margin-top:0.5rem">ENTER COMMAND CENTER</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ── TEAM ── -->
+    <div class="role-card card-team">
+      <div class="card-icon">🪖</div>
+      <div class="card-title">TEAM OWNER</div>
+      <div class="card-desc">Place bids, track your budget & build your squad</div>
+
+      <button class="btn-expand" onclick="toggleCard('team')">▶ LOGIN</button>
+
+      <div class="card-input-wrap" id="team-wrap">
+        <form onsubmit="doLogin(event,'team')">
+          <div class="input-label">SELECT YOUR TEAM</div>
+          <select class="field-select" id="team-name">
+            <option value="">— Choose Team —</option>
+            {% for t in teams %}
+            <option value="{{ t }}">{{ t }}</option>
+            {% endfor %}
+          </select>
+          <div class="input-label" style="margin-top:0.5rem">TEAM PASSWORD</div>
+          <input class="field" type="password" id="team-pass" placeholder="Enter team password…" autocomplete="off" />
+          <div class="error-msg" id="team-err"></div>
+          <button class="btn-login" type="submit" style="margin-top:0.5rem">DEPLOY TO AUCTION</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ── AUDIENCE ── -->
+    <div class="role-card card-audience">
+      <div class="card-icon">👁</div>
+      <div class="card-title">SPECTATOR</div>
+      <div class="card-desc">Watch the live auction in real-time — no login required</div>
+      <button class="btn-audience" onclick="window.location='/audience'" style="margin-top:0.75rem">
+        ▶ WATCH LIVE
+      </button>
+    </div>
+
+  </div>
+
+  <div class="version">STRIKER AUCTION SYSTEM v1.0 · SECURED ACCESS</div>
+</div>
+
+<script>
+function toggleCard(role) {
+  const wrap = document.getElementById(role + '-wrap');
+  const btn  = wrap.previousElementSibling;
+  const open = wrap.classList.contains('open');
+  // close all first
+  document.querySelectorAll('.card-input-wrap').forEach(w => w.classList.remove('open'));
+  document.querySelectorAll('.btn-expand').forEach(b => b.textContent = '▶ LOGIN');
+  if (!open) {
+    wrap.classList.add('open');
+    btn.textContent = '▼ CANCEL';
+  }
+}
+
+async function doLogin(e, role) {
+  e.preventDefault();
+  const errEl = document.getElementById(role + '-err');
+  errEl.textContent = '';
+
+  let body = { role };
+  if (role === 'admin') {
+    body.password = document.getElementById('admin-pass').value;
+  } else {
+    body.team = document.getElementById('team-name').value;
+    body.password = document.getElementById('team-pass').value;
+    if (!body.team) { errEl.textContent = 'Please select your team.'; return; }
+  }
+
+  try {
+    const res  = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (data.success) {
+      window.location = data.redirect;
+    } else {
+      errEl.textContent = data.error || 'Wrong password.';
+    }
+  } catch {
+    errEl.textContent = 'Connection error.';
+  }
+}
+</script>
+</body>
+</html>

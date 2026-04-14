@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STRIKER AUCTION — Bidding Terminal</title>
+  <meta name="description"
+    content="Real-time player auction bidding interface with live countdown and team budget tracking." />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+
+<body>
+
+  <!-- ═══════════════ NAV ═══════════════ -->
+  <nav class="navbar">
+    <div class="logo">⚔ <span>STRIKER</span>&nbsp;AUCTION</div>
+    <div class="nav-status">
+      <div class="status-dot" id="conn-dot"></div>
+      <span id="conn-label">CONNECTING…</span>
+    </div>
+  </nav>
+
+  <!-- ═══════════════ MAIN ═══════════════ -->
+  <div class="container">
+
+    <!-- TEAM SELECTOR ROW -->
+    <div class="card" style="margin-bottom:1rem">
+      <div class="section-header">
+        <h3>IDENTIFY YOUR UNIT</h3>
+        <div class="section-divider"></div>
+      </div>
+      <label class="input-label" for="team-select">Select Your Team</label>
+      <select class="team-selector" id="team-select">
+        <option value="">— Choose Team —</option>
+      </select>
+      <div style="margin-top:0.6rem; font-family:var(--font-mono); font-size:0.8rem; color:var(--text-dim)">
+        Budget: <span id="my-budget" style="color:var(--gold)">—</span> Credits
+      </div>
+    </div>
+
+    <!-- MAIN AUCTION AREA -->
+    <div id="idle-view" class="card idle-screen">
+      <div class="idle-icon">🎯</div>
+      <div class="idle-title">AWAITING DEPLOYMENT</div>
+      <p style="color:var(--text-dim);font-size:0.85rem">Admin is preparing the next player…</p>
+    </div>
+
+    <div id="auction-view" class="hidden">
+
+      <!-- PLAYER SHOWCASE + TIMER ROW -->
+      <div class="row-top" style="margin-bottom:1rem; align-items:stretch; gap:1rem; flex-wrap:wrap">
+
+        <!-- Player Card -->
+        <div class="player-showcase" style="flex:1; min-width:220px">
+          <div class="player-id-badge" id="p-id">ID: —</div>
+          <div class="player-name" id="p-name">PLAYER NAME</div>
+          <div class="player-skill" id="p-skill">Role</div>
+          <div style="margin-top:0.75rem">
+            <div class="base-price-label">BASE PRICE</div>
+            <div class="base-price-value">⚡ <span id="p-base">0</span></div>
+          </div>
+        </div>
+
+        <!-- Timer -->
+        <div class="card center" style="min-width:140px; flex-shrink:0">
+          <div class="timer-wrap">
+            <svg class="timer-svg" width="120" height="120" viewBox="0 0 120 120">
+              <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(75,83,32,0.2)" stroke-width="8" />
+              <circle id="timer-ring" cx="60" cy="60" r="52" fill="none" stroke="var(--orange)" stroke-width="8"
+                stroke-dasharray="326.7" stroke-dashoffset="0" stroke-linecap="round" transform="rotate(-90 60 60)"
+                style="transition: stroke-dashoffset 1s linear, stroke 0.5s" />
+            </svg>
+            <span class="timer-number" id="timer-display">20</span>
+          </div>
+          <div
+            style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-dim);margin-top:0.5rem;letter-spacing:2px">
+            SECONDS</div>
+        </div>
+      </div>
+
+      <!-- BID DISPLAY -->
+      <div class="bid-display" style="margin-bottom:1rem">
+        <div class="bid-label">◈ CURRENT HIGHEST BID ◈</div>
+        <div class="bid-amount" id="bid-amount">0</div>
+        <div class="bid-team">Leading: <strong id="bid-team-name">—</strong></div>
+      </div>
+
+      <!-- BID BUTTONS -->
+      <div class="card" style="margin-bottom:1rem">
+        <div class="section-header">
+          <h3>PLACE STRIKE</h3>
+          <div class="section-divider"></div>
+        </div>
+        <div class="bid-buttons" id="bid-buttons">
+          <button class="btn-bid" onclick="placeBid(1)"><span class="plus">+</span><br />1</button>
+          <button class="btn-bid" onclick="placeBid(2)"><span class="plus">+</span><br />2</button>
+          <button class="btn-bid" onclick="placeBid(3)"><span class="plus">+</span><br />3</button>
+          <button class="btn-bid" onclick="placeBid(4)"><span class="plus">+</span><br />4</button>
+          <button class="btn-bid" onclick="placeBid(5)"><span class="plus">+</span><br />5</button>
+        </div>
+        <p id="bid-error"
+          style="color:var(--danger);font-size:0.78rem;margin-top:0.5rem;text-align:center;min-height:1.2em"></p>
+      </div>
+
+      <!-- LIVE FEED -->
+      <div class="card">
+        <div class="section-header">
+          <h3>LIVE FEED</h3>
+          <div class="section-divider"></div>
+        </div>
+        <div class="feed" id="live-feed"></div>
+      </div>
+    </div>
+
+    <!-- TEAMS PANEL -->
+    <div class="card" style="margin-top:1rem">
+      <div class="section-header">
+        <h3>SQUAD BUDGETS</h3>
+        <div class="section-divider"></div>
+      </div>
+      <div class="teams-grid" id="teams-grid">
+        <div style="color:var(--text-dim);font-size:0.8rem;font-family:var(--font-mono)">No teams loaded yet…</div>
+      </div>
+    </div>
+
+  </div><!-- /container -->
+
+  <!-- ═══════════ SOLD OVERLAY ═══════════ -->
+  <div class="sold-overlay hidden" id="sold-overlay">
+    <div class="confetti-wrapper" id="confetti-wrap"></div>
+    <div class="sold-card">
+      <div class="sold-banner">SOLD!</div>
+      <div class="sold-player-name" id="so-player">Player Name</div>
+      <div class="sold-to-team">🏆 Acquired by: <strong id="so-team">—</strong></div>
+      <div class="sold-price">⚡ <span id="so-price">0</span> Credits</div>
+    </div>
+  </div>
+
+  <!-- ═══════════ TOAST ═══════════ -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- ═══════════ SOCKET.IO + JS ═══════════ -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+  <script>
+    // ──────────────────────────────────────────────
+    //  STATE
+    // ──────────────────────────────────────────────
+    let TIMER_MAX = 20;
+    let currentTimer = 20;
+    let auctionActive = false;
+    let teamsData = {};
+    let selectedTeam = '';
+
+    // ──────────────────────────────────────────────
+    //  SOCKET
+    // ──────────────────────────────────────────────
+    const socket = io({ transports: ['websocket', 'polling'] });
+
+    socket.on('connect', () => {
+      setConn(true);
+      addFeed('system', 'Connected to auction server');
+    });
+    socket.on('disconnect', () => {
+      setConn(false);
+      addFeed('warn', 'Connection lost — reconnecting…');
+    });
+
+    // Full state sync on (re)connect
+    socket.on('state_sync', (data) => {
+      teamsData = data.teams || {};
+      renderTeams();
+      populateTeamSelect();
+      updateMyBudget();
+
+      if (data.auction_active && data.current_player) {
+        showAuction(data.current_player);
+        updateBid(data.current_bid, data.highest_bidder);
+        updateTimer(data.timer);
+      } else {
+        showIdle();
+      }
+    });
+
+    socket.on('auction_started', (data) => {
+      auctionActive = true;
+      showAuction(data.player);
+      updateBid(data.current_bid, null);
+      updateTimer(20);
+      addFeed('system', `▶ Auction started: ${data.player.name} (Base: ${data.current_bid})`);
+      toast(`Auction: ${data.player.name}`, 'info');
+    });
+
+    socket.on('bid_update', (data) => {
+      updateBid(data.current_bid, data.highest_bidder);
+      updateTimer(data.timer);
+      addFeed('bid', `+${data.increment} by ${data.team} → ${data.current_bid} Cr`);
+      // Flash bid amount
+      document.getElementById('bid-amount').style.animation = 'none';
+      void document.getElementById('bid-amount').offsetWidth;
+      document.getElementById('bid-amount').style.animation = 'bid-pulse 0.3s ease';
+
+      if (data.team === selectedTeam) {
+        document.getElementById('bid-team-name').style.color = 'var(--orange)';
+      }
+      updateMyBudget();
+    });
+
+    socket.on('bid_rejected', (data) => {
+      document.getElementById('bid-error').textContent = '⚠ ' + data.reason;
+      setTimeout(() => document.getElementById('bid-error').textContent = '', 3000);
+      toast(data.reason, 'danger');
+    });
+
+    socket.on('timer_update', (data) => {
+      updateTimer(data.timer);
+    });
+
+    socket.on('timer_expired', (data) => {
+      auctionActive = false;
+      addFeed('system', `⏱ Timer expired. Winner: ${data.winner || 'No bids'}`);
+      if (data.winner) {
+        showSoldOverlay(data.player, data.winner, data.final_bid);
+      }
+    });
+
+    socket.on('player_sold', (data) => {
+      teamsData = data.teams || {};
+      renderTeams();
+      updateMyBudget();
+      auctionActive = false;
+      showIdle();
+      addFeed('sold', `⚡ SOLD: ${data.player?.name} → ${data.winner} for ${data.final_price} Cr`);
+      showSoldOverlay(data.player, data.winner, data.final_price);
+    });
+
+    socket.on('player_unsold', (data) => {
+      auctionActive = false;
+      showIdle();
+      addFeed('warn', `🚫 UNSOLD: ${data.player?.name || 'Player'}`);
+      toast('Player marked as UNSOLD', 'danger');
+    });
+
+    socket.on('teams_updated', (data) => {
+      teamsData = data.teams || {};
+      renderTeams();
+      populateTeamSelect();
+      updateMyBudget();
+    });
+
+    socket.on('players_updated', () => {
+      addFeed('system', 'Player roster synced from Google Sheets');
+    });
+
+    // ──────────────────────────────────────────────
+    //  BID
+    // ──────────────────────────────────────────────
+    function placeBid(increment) {
+      if (!auctionActive) { toast('No active auction', 'danger'); return; }
+      if (!selectedTeam) { toast('Select your team first!', 'danger'); return; }
+      document.getElementById('bid-error').textContent = '';
+      socket.emit('place_bid', { team: selectedTeam, increment });
+    }
+
+    // ──────────────────────────────────────────────
+    //  UI UPDATES
+    // ──────────────────────────────────────────────
+    function showAuction(player) {
+      auctionActive = true;
+      document.getElementById('idle-view').classList.add('hidden');
+      document.getElementById('auction-view').classList.remove('hidden');
+      document.getElementById('p-id').textContent = `ID: ${player.id}`;
+      document.getElementById('p-name').textContent = player.name;
+      document.getElementById('p-skill').textContent = player.skill;
+      document.getElementById('p-base').textContent = player.base_price;
+      document.getElementById('sold-overlay').classList.add('hidden');
+    }
+
+    function showIdle() {
+      auctionActive = false;
+      document.getElementById('idle-view').classList.remove('hidden');
+      document.getElementById('auction-view').classList.add('hidden');
+    }
+
+    function updateBid(amount, team) {
+      document.getElementById('bid-amount').textContent = amount;
+      document.getElementById('bid-team-name').textContent = team || '—';
+    }
+
+    function updateTimer(t) {
+      currentTimer = t;
+      document.getElementById('timer-display').textContent = t;
+      const ring = document.getElementById('timer-ring');
+      const circumference = 326.7;
+      const offset = circumference - (t / TIMER_MAX) * circumference;
+      ring.style.strokeDashoffset = offset;
+      // Color urgency
+      if (t <= 5) ring.style.stroke = 'var(--danger)';
+      else if (t <= 10) ring.style.stroke = 'var(--gold)';
+      else ring.style.stroke = 'var(--orange)';
+    }
+
+    // ──────────────────────────────────────────────
+    //  TEAMS
+    // ──────────────────────────────────────────────
+    function renderTeams() {
+      const grid = document.getElementById('teams-grid');
+      if (!Object.keys(teamsData).length) {
+        grid.innerHTML = '<div style="color:var(--text-dim);font-size:0.8rem;font-family:var(--font-mono)">No teams loaded yet…</div>';
+        return;
+      }
+      const bidder = document.getElementById('bid-team-name').textContent;
+      grid.innerHTML = Object.entries(teamsData).map(([name, d]) => `
+    <div class="team-card ${name === bidder ? 'leading' : ''}">
+      <div class="team-name-tag">${name}</div>
+      <div class="team-budget">⚡ ${d.budget}</div>
+      <div class="team-players">${d.player_count} player${d.player_count !== 1 ? 's' : ''}</div>
+    </div>
+  `).join('');
+    }
+
+    function populateTeamSelect() {
+      const sel = document.getElementById('team-select');
+      const current = sel.value;
+      sel.innerHTML = '<option value="">— Choose Team —</option>';
+      Object.keys(teamsData).forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name; opt.textContent = name;
+        sel.appendChild(opt);
+      });
+      if (current) sel.value = current;
+    }
+
+    function updateMyBudget() {
+      const t = teamsData[selectedTeam];
+      document.getElementById('my-budget').textContent = t ? t.budget : '—';
+    }
+
+    document.getElementById('team-select').addEventListener('change', function () {
+      selectedTeam = this.value;
+      updateMyBudget();
+      document.getElementById('bid-error').textContent = '';
+    });
+
+    // ──────────────────────────────────────────────
+    //  SOLD OVERLAY
+    // ──────────────────────────────────────────────
+    function showSoldOverlay(player, team, price) {
+      document.getElementById('so-player').textContent = player?.name || '—';
+      document.getElementById('so-team').textContent = team;
+      document.getElementById('so-price').textContent = price;
+      const overlay = document.getElementById('sold-overlay');
+      overlay.classList.remove('hidden');
+      spawnConfetti();
+      setTimeout(() => overlay.classList.add('hidden'), 5000);
+    }
+
+    function spawnConfetti() {
+      const wrap = document.getElementById('confetti-wrap');
+      wrap.innerHTML = '';
+      const colors = ['#FF4500', '#4B5320', '#FFD700', '#00ff88', '#ff2244'];
+      for (let i = 0; i < 60; i++) {
+        const el = document.createElement('div');
+        el.style.cssText = `
+      position:absolute;
+      width:8px; height:8px;
+      background:${colors[Math.floor(Math.random() * colors.length)]};
+      left:${Math.random() * 100}%;
+      top:-10px;
+      opacity:${0.7 + Math.random() * 0.3};
+      border-radius:${Math.random() > 0.5 ? '50%' : '0'};
+      animation: confettiFall ${1.5 + Math.random() * 2}s ease ${Math.random()}s forwards;
+    `;
+        wrap.appendChild(el);
+      }
+      if (!document.getElementById('confetti-style')) {
+        const s = document.createElement('style');
+        s.id = 'confetti-style';
+        s.textContent = `@keyframes confettiFall {
+      to { transform: translateY(100vh) rotate(${Math.random() * 720}deg); opacity:0; }
+    }`;
+        document.head.appendChild(s);
+      }
+    }
+
+    // ──────────────────────────────────────────────
+    //  TOAST
+    // ──────────────────────────────────────────────
+    function toast(msg, type = 'info') {
+      const c = document.getElementById('toast-container');
+      const el = document.createElement('div');
+      el.className = `toast ${type === 'danger' ? 'danger' : type === 'success' ? 'success' : ''}`;
+      el.textContent = msg;
+      c.prepend(el);
+      setTimeout(() => {
+        el.classList.add('leaving');
+        setTimeout(() => el.remove(), 350);
+      }, 3000);
+    }
+
+    // ──────────────────────────────────────────────
+    //  FEED
+    // ──────────────────────────────────────────────
+    function addFeed(type, msg) {
+      const feed = document.getElementById('live-feed');
+      const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const entry = document.createElement('div');
+      entry.className = 'feed-entry';
+      entry.innerHTML = `<span class="time">[${now}]</span><span class="event-${type}">${msg}</span>`;
+      feed.prepend(entry);
+      if (feed.children.length > 50) feed.lastChild.remove();
+    }
+
+    // ──────────────────────────────────────────────
+    //  CONN INDICATOR
+    // ──────────────────────────────────────────────
+    function setConn(ok) {
+      const dot = document.getElementById('conn-dot');
+      const lbl = document.getElementById('conn-label');
+      dot.className = 'status-dot' + (ok ? ' connected' : '');
+      lbl.textContent = ok ? 'LIVE' : 'OFFLINE';
+    }
+  </script>
+</body>
+
+</html>

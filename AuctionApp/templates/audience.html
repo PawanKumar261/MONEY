@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STRIKER AUCTION — Live Spectator View</title>
+  <meta name="description" content="Watch the live player auction in real-time." />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  <style>
+    /* Audience-only extras */
+    .audience-banner {
+      background: linear-gradient(135deg, rgba(255,215,0,0.08), transparent);
+      border: 1px solid rgba(255,215,0,0.3);
+      border-radius: 8px;
+      padding: 0.5rem 1.2rem;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--gold);
+      letter-spacing: 2px;
+      display: inline-flex; align-items: center; gap: 0.5rem;
+    }
+    .eye-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--gold);
+      animation: pulse-dot 1.5s infinite;
+    }
+    .viewer-count {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-dim);
+    }
+    .readonly-badge {
+      display: inline-block;
+      background: rgba(255,34,68,0.1);
+      border: 1px solid rgba(255,34,68,0.3);
+      color: var(--danger);
+      font-family: var(--font-mono);
+      font-size: 0.62rem; letter-spacing: 2px;
+      padding: 0.15rem 0.6rem; border-radius: 4px;
+    }
+    .back-btn {
+      font-family: var(--font-mono); font-size: 0.72rem;
+      color: var(--text-dim); text-decoration: none;
+      letter-spacing: 1px;
+      transition: color 0.2s;
+    }
+    .back-btn:hover { color: var(--orange); }
+
+    /* Big audience stats row */
+    .audience-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .a-stat {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem; text-align: center;
+    }
+    .a-stat-val {
+      font-family: var(--font-head);
+      font-size: 1.8rem;
+      color: var(--orange);
+    }
+    .a-stat-lbl {
+      font-family: var(--font-mono);
+      font-size: 0.62rem; color: var(--text-dim);
+      letter-spacing: 2px;
+    }
+    .sold-ticker {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.75rem;
+      max-height: 220px; overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+    }
+    .ticker-item {
+      display: flex; justify-content: space-between;
+      align-items: center; padding: 0.4rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .ticker-item:last-child { border-bottom: none; }
+    .ticker-player { color: var(--text); }
+    .ticker-team   { color: var(--green-l); }
+    .ticker-price  { color: var(--gold); font-weight: 700; }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="navbar">
+  <div class="logo">👁 <span>LIVE</span>&nbsp;SPECTATOR</div>
+  <div style="display:flex;align-items:center;gap:1rem">
+    <span class="audience-banner"><span class="eye-dot"></span> WATCH ONLY</span>
+    <div class="nav-status">
+      <div class="status-dot" id="conn-dot"></div>
+      <span id="conn-label">CONNECTING…</span>
+    </div>
+    <a href="/login" class="back-btn">← EXIT</a>
+  </div>
+</nav>
+
+<div class="container">
+
+  <!-- STATS ROW -->
+  <div class="audience-stats">
+    <div class="a-stat">
+      <div class="a-stat-val" id="stat-total">—</div>
+      <div class="a-stat-lbl">TOTAL PLAYERS</div>
+    </div>
+    <div class="a-stat">
+      <div class="a-stat-val" id="stat-sold" style="color:var(--gold)">—</div>
+      <div class="a-stat-lbl">SOLD</div>
+    </div>
+    <div class="a-stat">
+      <div class="a-stat-val" id="stat-avail" style="color:#00c864">—</div>
+      <div class="a-stat-lbl">REMAINING</div>
+    </div>
+  </div>
+
+  <!-- IDLE -->
+  <div id="idle-view" class="card idle-screen">
+    <div class="idle-icon">👁</div>
+    <div class="idle-title">STANDING BY FOR AUCTION</div>
+    <p style="color:var(--text-dim);font-size:0.85rem">Admin will start the next player soon…</p>
+  </div>
+
+  <!-- LIVE AUCTION VIEW -->
+  <div id="auction-view" class="hidden">
+    <div class="row-top" style="margin-bottom:1rem;flex-wrap:wrap">
+
+      <!-- Player Card -->
+      <div class="player-showcase" style="flex:1;min-width:220px">
+        <div class="player-id-badge" id="p-id">ID: —</div>
+        <div class="player-name" id="p-name">PLAYER NAME</div>
+        <div class="player-skill" id="p-skill">Role</div>
+        <div style="margin-top:0.75rem">
+          <div class="base-price-label">BASE PRICE</div>
+          <div class="base-price-value">⚡ <span id="p-base">0</span></div>
+        </div>
+      </div>
+
+      <!-- Timer -->
+      <div class="card center" style="min-width:140px;flex-shrink:0">
+        <div class="timer-wrap">
+          <svg class="timer-svg" width="120" height="120" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(75,83,32,0.2)" stroke-width="8"/>
+            <circle id="timer-ring" cx="60" cy="60" r="52" fill="none"
+              stroke="var(--orange)" stroke-width="8"
+              stroke-dasharray="326.7" stroke-dashoffset="0"
+              stroke-linecap="round" transform="rotate(-90 60 60)"
+              style="transition:stroke-dashoffset 1s linear,stroke 0.5s"/>
+          </svg>
+          <span class="timer-number" id="timer-display">20</span>
+        </div>
+        <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-dim);margin-top:0.5rem;letter-spacing:2px">SECONDS</div>
+      </div>
+    </div>
+
+    <!-- Bid Display -->
+    <div class="bid-display" style="margin-bottom:1rem">
+      <div class="bid-label">◈ CURRENT HIGHEST BID ◈</div>
+      <div class="bid-amount" id="bid-amount">0</div>
+      <div class="bid-team">Leading: <strong id="bid-team-name">—</strong></div>
+    </div>
+  </div>
+
+  <!-- TWO COLUMN: Teams + Sold History -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem">
+
+    <!-- Teams Panel -->
+    <div class="card">
+      <div class="section-header">
+        <h3>SQUAD BUDGETS</h3>
+        <div class="section-divider"></div>
+      </div>
+      <div class="teams-grid" id="teams-grid">
+        <div style="color:var(--text-dim);font-size:0.8rem;font-family:var(--font-mono)">Loading…</div>
+      </div>
+    </div>
+
+    <!-- Sold History -->
+    <div class="card">
+      <div class="section-header">
+        <h3>SOLD LOG</h3>
+        <div class="section-divider"></div>
+      </div>
+      <div class="sold-ticker" id="sold-ticker">
+        <div class="ticker-item"><span style="color:var(--text-dim);font-size:0.75rem">No sales yet…</span></div>
+      </div>
+    </div>
+  </div>
+
+  @media(max-width:600px) { div[style*="grid-template-columns:1fr 1fr"] { grid-template-columns:1fr !important; } }
+
+</div>
+
+<!-- Sold Overlay (audience gets to see it too) -->
+<div class="sold-overlay hidden" id="sold-overlay">
+  <div class="confetti-wrapper" id="confetti-wrap"></div>
+  <div class="sold-card">
+    <div class="sold-banner">SOLD!</div>
+    <div class="sold-player-name" id="so-player">—</div>
+    <div class="sold-to-team">🏆 Acquired by: <strong id="so-team">—</strong></div>
+    <div class="sold-price">⚡ <span id="so-price">0</span> Credits</div>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+<script>
+let teamsData = {};
+let soldLog   = [];
+
+const socket = io({ transports: ['websocket','polling'] });
+
+socket.on('connect', ()    => setConn(true));
+socket.on('disconnect', () => setConn(false));
+
+socket.on('state_sync', (d) => {
+  teamsData = d.teams || {};
+  renderTeams();
+  updateStats(d.players || []);
+  if (d.auction_active && d.current_player) {
+    showAuction(d.current_player);
+    updateBid(d.current_bid, d.highest_bidder);
+    setTimer(d.timer);
+  } else {
+    showIdle();
+  }
+});
+
+socket.on('auction_started', (d) => {
+  showAuction(d.player);
+  updateBid(d.current_bid, null);
+  setTimer(20);
+});
+
+socket.on('bid_update', (d) => {
+  updateBid(d.current_bid, d.highest_bidder);
+  setTimer(d.timer);
+  const el = document.getElementById('bid-amount');
+  el.style.animation = 'none';
+  void el.offsetWidth;
+  el.style.animation = 'bid-pulse 0.3s ease';
+});
+
+socket.on('timer_update', (d) => setTimer(d.timer));
+
+socket.on('player_sold', (d) => {
+  teamsData = d.teams || {};
+  renderTeams();
+  updateStats(d.players || []);
+  showIdle();
+  addSoldLog(d.player, d.winner, d.final_price);
+  showSoldOverlay(d.player, d.winner, d.final_price);
+});
+
+socket.on('timer_expired', (d) => {
+  if (!d.winner) showIdle();
+});
+
+socket.on('player_unsold', () => showIdle());
+
+socket.on('teams_updated', (d) => {
+  teamsData = d.teams || {};
+  renderTeams();
+});
+
+socket.on('players_updated', (d) => updateStats(d.players || []));
+
+// ── UI ────────────────────────────────────────
+function showAuction(p) {
+  document.getElementById('idle-view').classList.add('hidden');
+  document.getElementById('auction-view').classList.remove('hidden');
+  document.getElementById('sold-overlay').classList.add('hidden');
+  document.getElementById('p-id').textContent   = 'ID: ' + p.id;
+  document.getElementById('p-name').textContent  = p.name;
+  document.getElementById('p-skill').textContent = p.skill;
+  document.getElementById('p-base').textContent  = p.base_price;
+}
+function showIdle() {
+  document.getElementById('idle-view').classList.remove('hidden');
+  document.getElementById('auction-view').classList.add('hidden');
+}
+function updateBid(amount, team) {
+  document.getElementById('bid-amount').textContent   = amount;
+  document.getElementById('bid-team-name').textContent = team || '—';
+}
+function setTimer(t) {
+  document.getElementById('timer-display').textContent = t;
+  const ring = document.getElementById('timer-ring');
+  ring.style.strokeDashoffset = 326.7 - (t / 20) * 326.7;
+  ring.style.stroke = t <= 5 ? 'var(--danger)' : t <= 10 ? 'var(--gold)' : 'var(--orange)';
+}
+function updateStats(players) {
+  const total = players.length;
+  const sold  = players.filter(p => p.status === 'Sold').length;
+  document.getElementById('stat-total').textContent = total || '—';
+  document.getElementById('stat-sold').textContent  = sold  || '—';
+  document.getElementById('stat-avail').textContent = (total - sold) || '—';
+}
+function renderTeams() {
+  const grid = document.getElementById('teams-grid');
+  const bidder = document.getElementById('bid-team-name')?.textContent;
+  if (!Object.keys(teamsData).length) {
+    grid.innerHTML = '<div style="color:var(--text-dim);font-family:var(--font-mono);font-size:0.8rem">Loading…</div>';
+    return;
+  }
+  grid.innerHTML = Object.entries(teamsData).map(([n,d]) => `
+    <div class="team-card ${n===bidder?'leading':''}">
+      <div class="team-name-tag">${n}</div>
+      <div class="team-budget">⚡ ${d.budget}</div>
+      <div class="team-players">${d.player_count} player(s)</div>
+    </div>
+  `).join('');
+}
+function addSoldLog(player, team, price) {
+  soldLog.unshift({ player, team, price });
+  const ticker = document.getElementById('sold-ticker');
+  ticker.innerHTML = soldLog.map(s => `
+    <div class="ticker-item">
+      <span class="ticker-player">${s.player?.name || '—'}</span>
+      <span class="ticker-team">${s.team}</span>
+      <span class="ticker-price">⚡${s.price}</span>
+    </div>
+  `).join('') || '<div class="ticker-item"><span style="color:var(--text-dim)">No sales yet…</span></div>';
+}
+function showSoldOverlay(player, team, price) {
+  document.getElementById('so-player').textContent = player?.name || '—';
+  document.getElementById('so-team').textContent   = team;
+  document.getElementById('so-price').textContent  = price;
+  const ol = document.getElementById('sold-overlay');
+  ol.classList.remove('hidden');
+  spawnConfetti();
+  setTimeout(() => ol.classList.add('hidden'), 5000);
+}
+function spawnConfetti() {
+  const wrap = document.getElementById('confetti-wrap');
+  wrap.innerHTML = '';
+  const colors = ['#FF4500','#4B5320','#FFD700','#00ff88','#ff2244'];
+  for (let i = 0; i < 60; i++) {
+    const el = document.createElement('div');
+    el.style.cssText = `position:absolute;width:8px;height:8px;background:${colors[Math.floor(Math.random()*colors.length)]};left:${Math.random()*100}%;top:-10px;opacity:${0.7+Math.random()*0.3};border-radius:${Math.random()>0.5?'50%':'0'};animation:confettiFall ${1.5+Math.random()*2}s ease ${Math.random()}s forwards;`;
+    wrap.appendChild(el);
+  }
+  if (!document.getElementById('confetti-style')) {
+    const s = document.createElement('style');
+    s.id = 'confetti-style';
+    s.textContent = '@keyframes confettiFall { to { transform: translateY(100vh) rotate(720deg); opacity:0; } }';
+    document.head.appendChild(s);
+  }
+}
+function setConn(ok) {
+  document.getElementById('conn-dot').className = 'status-dot' + (ok?' connected':'');
+  document.getElementById('conn-label').textContent = ok ? 'LIVE' : 'OFFLINE';
+}
+</script>
+</body>
+</html>
