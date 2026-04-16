@@ -28,7 +28,7 @@ socketio = SocketIO(
 # ─────────────────────────────────────────────
 #  PASSWORDS
 # ─────────────────────────────────────────────
-ADMIN_PASSWORD = "striker@999"   # Admin login
+ADMIN_PASSWORD = "Bp2rut5y37"   # Admin login
 
 # Each team gets their own password (TeamName -> password)
 # Password = team name lowercase, spaces replaced by underscore + "@bid"
