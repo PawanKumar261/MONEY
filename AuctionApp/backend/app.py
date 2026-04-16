@@ -156,7 +156,7 @@ def start_timer():
 def reset_timer():
     """Reset timer to 20 when a new bid is placed."""
     with timer_lock:
-        auction_state["timer"] = 20
+        auction_state["timer"] = 10
         # Keep timer_running = True; existing thread will pick up new value
 
 
